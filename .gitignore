@@ -1,0 +1,23 @@
+# Secrets
+.env
+*.env.local
+
+# Build output
+target/
+node_modules/
+dist/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Runtime cache
+/tmp/audio-cache/
+
+# Personal planning notes (kept local, not part of the repo)
+/LEIA-ME-PRIMEIRO.md
+/docs/*
+# ...but publish the ADRs (architecture decisions are part of the portfolio)
+!/docs/adr/

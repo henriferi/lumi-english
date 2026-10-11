@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: lumi-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lumi}
+      POSTGRES_USER: ${POSTGRES_USER:-lumi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lumi}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - lumi-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lumi-pgdata:

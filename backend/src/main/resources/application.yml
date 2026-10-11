@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: lumi-english
+
+  # Reads the .env at the repository root (same file docker compose uses), so nothing needs to be exported.
+  # Real environment variables still win over values from this file.
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:lumi}
+    username: ${POSTGRES_USER:lumi}
+    password: ${POSTGRES_PASSWORD:lumi}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate # Flyway owns the schema
+
+  mvc:
+    problemdetails:
+      enabled: true
+
+  # API messages (e.g. validation errors) always in English, whatever the OS or browser language.
+  web:
+    locale: en
+    locale-resolver: fixed
+
+  ai:
+    openai:
+      # Placeholder lets the app start without a key; nothing calls OpenAI until Phase 1.
+      api-key: ${OPENAI_API_KEY:missing}
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+      embedding:
+        options:
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    vectorstore:
+      pgvector:
+        initialize-schema: true # vector_store table is created by Spring AI, not Flyway
+        dimensions: ${EMBEDDING_DIMENSIONS:1536} # must match the embedding model
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+lumi:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
