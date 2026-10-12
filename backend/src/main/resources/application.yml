@@ -30,11 +30,15 @@ spring:
 
   ai:
     openai:
-      # Placeholder lets the app start without a key; nothing calls OpenAI until Phase 1.
+      # Placeholder lets the app start without a key (chat and ingestion will fail until a real key is set).
       api-key: ${OPENAI_API_KEY:missing}
+      # Explicit, so a global OPENAI_BASE_URL on the machine (e.g. pointing to another provider) is never picked up.
+      base-url: ${LUMI_OPENAI_BASE_URL:https://api.openai.com/v1}
       chat:
         options:
           model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+          temperature: ${OPENAI_CHAT_TEMPERATURE:0.4}
+          max-completion-tokens: ${OPENAI_MAX_COMPLETION_TOKENS:800} # caps cost and runaway answers
       embedding:
         options:
           model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
@@ -54,3 +58,12 @@ management:
 lumi:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  curriculum:
+    path: ${CURRICULUM_PATH:../curriculum} # relative to the backend folder
+    ingest-on-startup: ${CURRICULUM_INGEST_ON_STARTUP:true}
+    top-k: ${RAG_TOP_K:4}
+    # Cosine similarity (0..1). Sections below this are not sent to the model. Measured with text-embedding-3-small:
+    # on-topic learner messages scored 0.20-0.36, off-topic ones up to 0.17.
+    similarity-threshold: ${RAG_SIMILARITY_THRESHOLD:0.2}
+  tutor:
+    history-size: ${TUTOR_HISTORY_SIZE:10} # previous messages sent to the model

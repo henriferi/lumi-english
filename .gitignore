@@ -19,5 +19,6 @@ dist/
 # Personal planning notes (kept local, not part of the repo)
 /LEIA-ME-PRIMEIRO.md
 /docs/*
+/CLAUDE.md
 # ...but publish the ADRs (architecture decisions are part of the portfolio)
 !/docs/adr/

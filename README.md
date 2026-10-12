@@ -54,20 +54,63 @@ cd backend && ./mvnw verify
 > Postgres is exposed on **5433** so it doesn't clash with a PostgreSQL installed locally on 5432.
 > Change `POSTGRES_PORT` in `.env` if you need another port.
 
+> **Environment variables win over `.env`.** If your machine has a global `OPENAI_API_KEY` (for example, one for
+> another provider), it replaces the key in `.env`. The base URL is pinned to OpenAI in `application.yml`, so a
+> global `OPENAI_BASE_URL` is ignored.
+
 ### API
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/settings` | Learner profile (name, age group, level) |
 | `PUT` | `/api/settings` | Update the profile. Invalid input returns `400` as [Problem Details](https://www.rfc-editor.org/rfc/rfc9457) |
+| `POST` | `/api/chat` | `{conversationId?, text}` → tutor reply, correction, Portuguese explanation and source lessons |
+| `POST` | `/api/admin/ingest` | Re-index lessons that changed in `/curriculum` (also runs on startup) |
 
 ### Project layout
 
 ```
-backend/     Spring Boot API (packages by feature under dev.lumi: settings, common, ...)
-frontend/    React + TypeScript + Vite + Tailwind
-docs/adr/    Architecture decision records
+backend/      Spring Boot API, packages by feature under dev.lumi:
+                settings/    learner profile
+                curriculum/  lesson parsing, ingestion and vector search (RAG)
+                tutor/       chat flow, prompt building, structured reply
+                common/      errors, CORS, AI call log
+backend/src/main/resources/prompts/   prompt templates (.st)
+curriculum/   the lessons (Markdown) — the knowledge base of the RAG
+frontend/     React + TypeScript + Vite + Tailwind
+docs/adr/     Architecture decision records
 ```
+
+## RAG: how the tutor uses the curriculum
+
+**Ingestion** (on startup and on `POST /api/admin/ingest`):
+
+1. Each `curriculum/*.md` has YAML front matter (`slug`, `level`, `skill`, ...) and `## ` sections
+   (Rule, Examples, Common mistakes, Practice).
+2. Each **section becomes one chunk**, prefixed with the lesson title and section name. The lessons are ours and
+   structured, so a section is a complete idea; fixed-size chunks would cut rules in half.
+3. Chunks are embedded with `text-embedding-3-small` and stored in **pgvector** (Spring AI `PgVectorStore`) with
+   their metadata, including a numeric `levelRank`.
+4. A SHA-256 per file is kept in `curriculum_file`: unchanged lessons are skipped, changed ones replace their
+   old chunks, deleted ones are removed.
+
+**Each chat message:**
+
+1. The learner's message is embedded and the **top-4** closest sections are retrieved, filtered by
+   `levelRank <= learner level` and a **similarity threshold** (0.2). Nothing above the threshold → the prompt tells
+   the model not to invent rules.
+2. The system prompt is built from templates: persona by age group, use of Portuguese by level, the retrieved
+   sections (with their slugs) and the last 10 messages.
+3. The model answers with **structured output** (JSON schema generated from the `TutorReply` record). The reply is
+   validated; an invalid answer gets one retry, then a friendly fallback.
+4. Java removes sources that weren't retrieved and "corrections" that change nothing, then saves both messages
+   with a trace of the retrieved chunks and scores.
+
+Every OpenAI call (chat and embedding) is written to `ai_call_log` with model, tokens and latency, through a
+Micrometer observation handler, so no call site can forget it.
+
+**Choosing the threshold.** It was measured, not guessed: with `text-embedding-3-small`, on-topic learner
+messages scored 0.20–0.36 against the right lesson and off-topic ones at most 0.17.
 
 ## Technical decisions
 
